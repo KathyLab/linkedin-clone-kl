@@ -5,11 +5,13 @@ import Sidebar from '@/components/Sidebar';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import Feed from '@/components/Feed';
+import Widgets from '@/components/Widgets';
 import { AnimatePresence } from 'framer-motion';
 import Modal from '../components/Modal';
 import { modalState, modalTypeState } from '../../atoms/modalAtom';
 import { useRecoilState } from 'recoil';
 import { connectToDatabase } from '../../util/mongodb';
+import { useEffect, useState } from 'react';
 
 export default function Home({ posts }) {
   // client side authenticated
@@ -24,6 +26,22 @@ export default function Home({ posts }) {
   console.log(session);
   const [modalOpen, setModalOpen] = useRecoilState(modalState);
   const [modalType, setModalType] = useRecoilState(modalTypeState);
+  const [articles, setArticles] = useState([]);
+
+  useEffect(() => {
+    // Get New York Times api
+    const fetchNews = async () => {
+      const news = await fetch(
+        `https://api.nytimes.com/svc/topstories/v2/home.json?api-key=${process.env.NEWS_API_KEY}`
+      ).then((res) => res.json());
+
+      console.log(news, 'new');
+      setArticles(news?.results ?? []);
+    };
+
+    fetchNews();
+  }, []);
+
   return (
     <div className="bg-[#f3f2ef] dark:bg-black dark:text-white h-screen overflow-y-scroll md:space-y-6">
       <Head>
@@ -43,6 +61,7 @@ export default function Home({ posts }) {
         </div>
 
         {/* Widgets */}
+        <Widgets articles={articles} />
         <AnimatePresence>
           {modalOpen && (
             <Modal handleClose={() => setModalOpen(false)} type={modalType} />
@@ -73,11 +92,18 @@ export async function getServerSideProps(context) {
     .sort({ timestamp: -1 })
     .toArray();
 
-  // Get Google News api
+  /**
+   * @workaround need to solve `fetch failed` problem
+   */
+  // Get New York Times api
+  // const news = await fetch(
+  //   `https://api.nytimes.com/svc/topstories/v2/home.json?api-key=${process.env.NEWS_API_KEY}`
+  // ).then((res) => res.json());
 
   return {
     props: {
       session,
+      // articles: news.results,
       posts: posts.map((post) => ({
         _id: post._id.toString(),
         input: post.input,
